@@ -18,7 +18,7 @@ jobs:
       - run: cargo build --release --locked --target wasm32-unknown-unknown
       - run: |
           mkdir release
-          cp target/wasm32-unknown-unknown/release/traefik-query-params.wasm release/
+          cp target/wasm32-unknown-unknown/release/traefik-query-params.wasm release/plugin.wasm
           cp .traefik.yml release/
           cd release
           zip traefik-query-params-${{ github.ref_name }}.zip traefik-query-params.wasm .traefik.yml
