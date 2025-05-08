@@ -11,4 +11,7 @@ fn http_request() -> i64 {
     1
 }
 
+#[unsafe(export_name = "handle_response")]
+fn http_response(_req_ctx: i32, _is_error: i32) {}
+
 fn main() {}
