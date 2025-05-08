@@ -1,0 +1,27 @@
+name: Release
+
+on:
+  push:
+    tags:
+        - "v*.*.*"
+
+jobs:
+  main:
+    name: Release process
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: wasm32-unknown-unknown
+      - run: cargo build --release --locked --target wasm32-unknown-unknown
+      - run: |
+          mkdir release
+          cp target/wasm32-unknown-unknown/release/traefik-query-params.wasm release/
+          cp .traefik.yml release/
+          cd release
+          zip traefik-query-params-${{ github.ref }}.zip traefik-query-params.wasm .traefik.yml
+      - uses: ncipollo/release-action@v1
+        with:
+          artifacts: release/traefik-query-params-${{ github.ref }}.zip

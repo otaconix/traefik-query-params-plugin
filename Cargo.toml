@@ -1,0 +1,11 @@
+[package]
+name = "traefik-query-params"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+traefik_wasm_api = "1.0.1"
+url = "2.5.4"
+
+[profile.release]
+opt-level = "s"
