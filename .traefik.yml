@@ -4,4 +4,16 @@ type: middleware
 
 summary: Adds query params to requests
 
-testData: {}
+testData:
+  hello:
+    add:
+      value: world
+  test:
+    add:
+      value: test
+      position: -1
+  remove-all:
+    remove: all
+  remove-me:
+    remove:
+      position: 0
