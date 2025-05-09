@@ -39,8 +39,8 @@ impl AddOperation {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 enum RemoveOperation {
-    #[serde(alias = "ALL", alias = "all")]
     All,
     Position(i8),
 }
@@ -68,7 +68,9 @@ impl RemoveOperation {
 
 #[derive(Serialize, Deserialize)]
 enum QueryParamOperation {
+    #[serde(rename = "add")]
     Add(AddOperation),
+    #[serde(rename = "remove")]
     Remove(RemoveOperation),
 }
 
