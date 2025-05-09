@@ -48,7 +48,7 @@ impl AddOperation {
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = "lowercase", untagged)]
+#[serde(rename_all = "lowercase")]
 enum RemoveOperation {
     All,
     #[serde(deserialize_with = "deserialize_number_from_string")]
@@ -263,9 +263,19 @@ mod tests {
 
     #[test]
     fn deserialize_remove() {
-        let _remove_operation_from_string: RemoveOperation =
-            serde_json::from_value(json!("-1")).unwrap();
-        let _remove_operation_from_number: RemoveOperation =
-            serde_json::from_value(json!(-1)).unwrap();
+        let remove_operation_from_string: RemoveOperation =
+            serde_json::from_value(json!({"position": "-1"})).unwrap();
+        assert!(matches!(
+            remove_operation_from_string,
+            RemoveOperation::Position(-1)
+        ));
+        let remove_operation_from_number: RemoveOperation =
+            serde_json::from_value(json!({"position": -1})).unwrap();
+        assert!(matches!(
+            remove_operation_from_number,
+            RemoveOperation::Position(-1)
+        ));
+        let remove_operation_all: RemoveOperation = serde_json::from_value(json!("all")).unwrap();
+        assert!(matches!(remove_operation_all, RemoveOperation::All));
     }
 }
