@@ -2,6 +2,7 @@ use indexmap::IndexMap;
 use lazy_static::lazy_static;
 use serde::Deserialize;
 use serde::Serialize;
+use serde_aux::field_attributes::deserialize_number_from_string;
 use traefik_wasm_api as traefik;
 
 #[global_allocator]
@@ -20,6 +21,10 @@ fn position_to_index<T>(position: i8, vec: &[T], for_insertion: bool) -> usize {
 
 #[derive(Serialize, Deserialize)]
 struct AddOperation {
+    #[serde(
+        deserialize_with = "deserialize_number_from_string",
+        default = "AddOperation::default_position"
+    )]
     position: i8,
     value: Option<String>,
 }
@@ -36,12 +41,17 @@ impl AddOperation {
             ),
         )
     }
+
+    fn default_position() -> i8 {
+        -1
+    }
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 enum RemoveOperation {
     All,
+    #[serde(deserialize_with = "deserialize_number_from_string")]
     Position(i8),
 }
 
@@ -140,6 +150,8 @@ fn main() {}
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
 
     fn pair<Value: ToString + Sized>(key: &str, value: Value) -> (String, String) {
@@ -240,5 +252,21 @@ mod tests {
         RemoveOperation::Position(-2).apply("key", &mut query);
 
         assert_eq!(&query, &[pair("key", "kept1"), pair("key", "kept2")]);
+    }
+
+    #[test]
+    fn deserialize_add_position() {
+        let _add_operation_from_string: AddOperation =
+            serde_json::from_value(json!({"position": "-1"})).unwrap();
+        let _add_operation_from_number: AddOperation =
+            serde_json::from_value(json!({"position": -1})).unwrap();
+    }
+
+    #[test]
+    fn deserialize_remove() {
+        let _remove_operation_from_string: RemoveOperation =
+            serde_json::from_value(json!({"position": "-1"})).unwrap();
+        let _remove_operation_from_number: RemoveOperation =
+            serde_json::from_value(json!({"position": -1})).unwrap();
     }
 }
