@@ -48,7 +48,7 @@ impl AddOperation {
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "lowercase", untagged)]
 enum RemoveOperation {
     All,
     #[serde(deserialize_with = "deserialize_number_from_string")]
@@ -77,10 +77,9 @@ impl RemoveOperation {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 enum QueryParamOperation {
-    #[serde(rename = "add")]
     Add(AddOperation),
-    #[serde(rename = "remove")]
     Remove(RemoveOperation),
 }
 
@@ -265,8 +264,8 @@ mod tests {
     #[test]
     fn deserialize_remove() {
         let _remove_operation_from_string: RemoveOperation =
-            serde_json::from_value(json!({"position": "-1"})).unwrap();
+            serde_json::from_value(json!("-1")).unwrap();
         let _remove_operation_from_number: RemoveOperation =
-            serde_json::from_value(json!({"position": -1})).unwrap();
+            serde_json::from_value(json!(-1)).unwrap();
     }
 }
