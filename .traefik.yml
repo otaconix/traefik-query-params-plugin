@@ -13,7 +13,16 @@ testData:
       value: test
       position: -1
   remove-all:
-    remove: all
-  remove-me:
+    remove: {}
+  remove-all-with-regexp:
+    remove:
+      # Regexp to match against the _value_ of query params
+      # Regexes are already anchored, so no need for ^ or $
+      regexp: hello.*
+  remove-first:
     remove:
       position: 0
+  remove-last-with-regexp:
+    remove:
+      position: -1
+      regexp: remove-me.*

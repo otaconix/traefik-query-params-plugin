@@ -1,89 +1,22 @@
+mod add;
+mod remove;
+mod util;
+
+use add::AddOperation;
 use indexmap::IndexMap;
 use lazy_static::lazy_static;
+use remove::RemoveOperation;
 use serde::Deserialize;
-use serde::Serialize;
-use serde_aux::field_attributes::deserialize_number_from_string;
 use traefik_wasm_api as traefik;
 
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-
-fn position_to_index<T>(position: i8, vec: &[T], for_insertion: bool) -> usize {
-    if position < 0 {
-        vec.len()
-            .checked_sub(position.unsigned_abs() as usize)
-            .map(|i| if for_insertion { i + 1 } else { i })
-            .unwrap_or(0)
-    } else {
-        (position as usize).min(vec.len())
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-struct AddOperation {
-    #[serde(
-        deserialize_with = "deserialize_number_from_string",
-        default = "AddOperation::default_position"
-    )]
-    position: i8,
-    value: Option<String>,
-}
-
-impl AddOperation {
-    fn apply(&self, name: &str, query: &mut Vec<(String, String)>) {
-        let index = position_to_index(self.position, query, true);
-
-        query.insert(
-            index,
-            (
-                name.to_string(),
-                self.value.clone().unwrap_or("".to_string()),
-            ),
-        )
-    }
-
-    fn default_position() -> i8 {
-        -1
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-enum RemoveOperation {
-    All,
-    #[serde(deserialize_with = "deserialize_number_from_string")]
-    Position(i8),
-}
-
-impl RemoveOperation {
-    fn apply(&self, name: &str, query: &mut Vec<(String, String)>) {
-        match self {
-            RemoveOperation::All => query.retain(|(param_name, _)| param_name != name),
-            RemoveOperation::Position(position) => {
-                let matching_param_indices = query
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, (key, _))| key == name)
-                    .map(|(index, _)| index)
-                    .collect::<Vec<_>>();
-                if !matching_param_indices.is_empty() {
-                    let index_to_remove =
-                        position_to_index(*position, &matching_param_indices, false);
-                    query.remove(index_to_remove);
-                }
-            }
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "lowercase")]
 enum QueryParamOperation {
     Add(AddOperation),
     Remove(RemoveOperation),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize, Debug)]
 struct Config {
     #[serde(flatten)]
     params: IndexMap<String, QueryParamOperation>,
@@ -152,36 +85,11 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+    use add::AddOperation;
+    use remove::RemoveOperation;
 
     fn pair<Value: ToString + Sized>(key: &str, value: Value) -> (String, String) {
         (key.to_string(), value.to_string())
-    }
-
-    #[test]
-    fn serialization() {
-        serde_json::to_writer_pretty(
-            std::io::stdout(),
-            &Config {
-                params: IndexMap::from([
-                    (
-                        "test-param".to_string(),
-                        QueryParamOperation::Add(AddOperation {
-                            position: 0,
-                            value: Some("Hello world!".to_string()),
-                        }),
-                    ),
-                    (
-                        "remove-all".to_string(),
-                        QueryParamOperation::Remove(RemoveOperation::All),
-                    ),
-                    (
-                        "remove-one".to_string(),
-                        QueryParamOperation::Remove(RemoveOperation::Position(-2)),
-                    ),
-                ]),
-            },
-        )
-        .unwrap();
     }
 
     #[test]
@@ -220,7 +128,7 @@ mod tests {
     fn remove_all() {
         let mut query = [pair("remove-me", 1), pair("keep", 2), pair("remove-me", 3)].to_vec();
 
-        RemoveOperation::All.apply("remove-me", &mut query);
+        RemoveOperation::all().apply("remove-me", &mut query);
 
         assert_eq!(&query, &[pair("keep", 2)]);
     }
@@ -234,7 +142,7 @@ mod tests {
         ]
         .to_vec();
 
-        RemoveOperation::Position(1).apply("key", &mut query);
+        RemoveOperation::position(1).apply("key", &mut query);
 
         assert_eq!(&query, &[pair("key", "kept1"), pair("key", "kept2")]);
     }
@@ -248,7 +156,7 @@ mod tests {
         ]
         .to_vec();
 
-        RemoveOperation::Position(-2).apply("key", &mut query);
+        RemoveOperation::position(-2).apply("key", &mut query);
 
         assert_eq!(&query, &[pair("key", "kept1"), pair("key", "kept2")]);
     }
@@ -265,17 +173,31 @@ mod tests {
     fn deserialize_remove() {
         let remove_operation_from_string: RemoveOperation =
             serde_json::from_value(json!({"position": "-1"})).unwrap();
-        assert!(matches!(
-            remove_operation_from_string,
-            RemoveOperation::Position(-1)
-        ));
+        assert_eq!(remove_operation_from_string, RemoveOperation::position(-1));
         let remove_operation_from_number: RemoveOperation =
             serde_json::from_value(json!({"position": -1})).unwrap();
-        assert!(matches!(
-            remove_operation_from_number,
-            RemoveOperation::Position(-1)
-        ));
-        let remove_operation_all: RemoveOperation = serde_json::from_value(json!("all")).unwrap();
-        assert!(matches!(remove_operation_all, RemoveOperation::All));
+        assert_eq!(remove_operation_from_number, RemoveOperation::position(-1));
+        let remove_operation_all: RemoveOperation = serde_json::from_value(json!({})).unwrap();
+        assert_eq!(remove_operation_all, RemoveOperation::all());
+        let remove_operation_all_explicit_null: RemoveOperation =
+            serde_json::from_value(json!({"position": null})).unwrap();
+        assert_eq!(remove_operation_all_explicit_null, RemoveOperation::all());
+        let remove_operation_all_regexp: RemoveOperation =
+            serde_json::from_value(json!({"regexp": "hello.*"})).unwrap();
+        assert_eq!(
+            remove_operation_all_regexp,
+            RemoveOperation::all().matching_regexp("hello.*").unwrap()
+        );
+        let remove_operation_position_regexp: RemoveOperation = serde_json::from_value(json!({
+            "position": "-2",
+            "regexp": "hello.*"
+        }))
+        .unwrap();
+        assert_eq!(
+            remove_operation_position_regexp,
+            RemoveOperation::position(-2)
+                .matching_regexp("hello.*")
+                .unwrap()
+        );
     }
 }
